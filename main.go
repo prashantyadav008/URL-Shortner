@@ -11,20 +11,18 @@ import (
 )
 
 type URLStruct struct {
-	ID          int       `json:"id"`
-	OriginalURL string    `json:"originalurl"`
-	ShortCutURL string    `json:"shortcuturl"`
-	CreatedAt   time.Time `json:"createdat"`
+	ID          string    `json:"id"`
+	OriginalURL string    `json:"original_url"`
+	ShortURL    string    `json:"short_url"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 var urlDB = make(map[string]URLStruct)
 
-var totalUrlShort int = 0
-
-func generateShortURL(originalURL string) string {
+func generateShortURL(_originalURL string) string {
 	hasher := md5.New()
 
-	hasher.Write([]byte(originalURL))
+	hasher.Write([]byte(_originalURL))
 
 	data := hasher.Sum(nil)
 
@@ -37,27 +35,23 @@ func generateShortURL(originalURL string) string {
 	return hexData[:8]
 }
 
-func createURL(originalURL string) string {
-	shortUrl := generateShortURL(originalURL)
-
-	totalUrlShort++
-
-	fmt.Println("totalUrlShort --->>", totalUrlShort)
+func createURL(_originalURL string) string {
+	shortUrl := generateShortURL(_originalURL)
 
 	urlDB[shortUrl] = URLStruct{
-		ID:          totalUrlShort,
-		OriginalURL: originalURL,
-		ShortCutURL: shortUrl,
+		ID:          shortUrl,
+		OriginalURL: _originalURL,
+		ShortURL:    shortUrl,
 		CreatedAt:   time.Now(),
 	}
 
 	return shortUrl
 }
 
-func getURL(shortUrl string) (URLStruct, error) {
-	url, of := urlDB[shortUrl]
+func getURL(_shortUrl string) (URLStruct, error) {
+	url, status := urlDB[_shortUrl]
 
-	if !of {
+	if !status {
 		return URLStruct{}, errors.New("url not found")
 	}
 
@@ -67,14 +61,12 @@ func getURL(shortUrl string) (URLStruct, error) {
 // w is the response writer
 // r is the request object
 func RootPageURL(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Get Method")
-
-	fmt.Fprint(w, "Hello World")
+	fmt.Fprint(w, "Hello User")
 }
 
 func ShortURLHandler(w http.ResponseWriter, r *http.Request) {
 	var data struct {
-		URL string `json:"url"`
+		URLStruct string `json:"url"`
 	}
 
 	err := json.NewDecoder(r.Body).Decode(&data)
@@ -83,7 +75,7 @@ func ShortURLHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortedUrl := createURL(data.URL)
+	shortedUrl := createURL(data.URLStruct)
 
 	fmt.Println("shortUrl ;", shortedUrl)
 
@@ -104,7 +96,8 @@ func ShortURLHandler(w http.ResponseWriter, r *http.Request) {
 
 func redirectURLHandler(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Fprint(w, "redirectURLHandler")
+	fmt.Println("redirect URL Handler")
+	fmt.Fprint(w, "redirect URL Handler")
 
 	id := r.URL.Path[len("/redirect/"):]
 	url, err := getURL(id)
@@ -112,12 +105,12 @@ func redirectURLHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	fmt.Println("url ;", url)
+	fmt.Println("url Data;", url.OriginalURL)
 	http.Redirect(w, r, url.OriginalURL, http.StatusFound)
 }
 
 func main() {
-	// fmt.Println("Hello World")
+	// fmt.Println("Hello User")
 	// originalURL := "www.google.com"
 	// generateShortURL(originalURL)
 
@@ -127,7 +120,7 @@ func main() {
 
 	http.HandleFunc("/", RootPageURL)
 	http.HandleFunc("/shorten", ShortURLHandler)
-	http.HandleFunc("/redirect", redirectURLHandler)
+	http.HandleFunc("/redirect/", redirectURLHandler)
 
 	PORT := 8000
 	fmt.Println(`Starting Server on PORT  `, PORT)
